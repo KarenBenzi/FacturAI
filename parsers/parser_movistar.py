@@ -1,37 +1,119 @@
-def parsear_factura_movistar(texto, codigos_barras):
-    """
-    Parsea una factura de Movistar, extrayendo información útil.
+import re
+from datetime import datetime
 
-    Parámetros:
-    - texto: string con el texto extraído de la factura.
-    - codigos_barras: lista de strings con los códigos de barra detectados.
+def calcular_periodo_desde_vencimiento(fecha_vencimiento_str):
+    try:
+        fecha_venc = datetime.strptime(fecha_vencimiento_str, "%d/%m/%Y")
+        mes = fecha_venc.month
+        anio = fecha_venc.year
+        # Periodo es mes anterior al vencimiento
+        if mes == 1:
+            mes_periodo = 12
+            anio -= 1
+        else:
+            mes_periodo = mes - 1
+        return f"{mes_periodo:02d}/{anio}"
+    except:
+        return None
 
-    Retorna:
-    - dict con los campos clave extraídos.
-    """
+def extraer_datos_codigo_movistar(codigo):
     datos = {
-        "empresa": "Movistar",
-        "cliente": None,
-        "domicilio": None,
-        "periodo": None,
-        "vencimiento": None,
-        "importe": None,
-        "codigo_barras": codigos_barras[0] if codigos_barras else None
+        'cliente': None,
+        'monto': None,
+        'vencimiento': None,
+        'periodo': None,
     }
+    try:
+        # Monto: dígitos de la posición 14 a 20 (6 dígitos)
+        monto_str = codigo[14:20].lstrip('0')
+        if monto_str.isdigit():
+            datos['monto'] = "{:.2f}".format(int(monto_str))
 
-    # Extracciones por patrones simples (adaptar según tu factura escaneada)
-    for linea in texto.split("\n"):
-        linea = linea.strip()
+        # Vencimiento: dígitos posición 20 a 28 (DDMMYYYY)
+        venc_str = codigo[20:28]
+        if len(venc_str) == 8 and venc_str.isdigit():
+            dia = venc_str[0:2]
+            mes = venc_str[2:4]
+            anio = venc_str[4:8]
+            try:
+                datetime.strptime(f"{dia}/{mes}/{anio}", "%d/%m/%Y")
+                datos['vencimiento'] = f"{dia}/{mes}/{anio}"
+                datos['periodo'] = calcular_periodo_desde_vencimiento(datos['vencimiento'])
+            except:
+                pass
+    except:
+        pass
+    return datos
 
-        if "cliente" in linea.lower():
-            datos["cliente"] = linea
-        elif "domicilio" in linea.lower():
-            datos["domicilio"] = linea
-        elif "periodo" in linea.lower():
-            datos["periodo"] = linea
-        elif "vencimiento" in linea.lower():
-            datos["vencimiento"] = linea
-        elif "$" in linea or "importe" in linea.lower():
-            datos["importe"] = linea
+def extraer_vencimiento(texto):
+    patrones = [
+        r'Vencimiento[:\s]*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',
+        r'Fecha de Vencimiento[:\s]*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',
+        r'Fecha vencimiento[:\s]*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',
+        r'Fecha de pago hasta[:\s]*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',
+        r'Vencimiento factura[:\s]*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',
+    ]
+    for patron in patrones:
+        match = re.search(patron, texto, re.IGNORECASE)
+        if match:
+            fecha_str = match.group(1).replace('-', '/')
+            try:
+                datetime.strptime(fecha_str, "%d/%m/%Y")
+                return fecha_str
+            except:
+                continue
+    return None
+
+def extraer_nombre_cliente(texto):
+    patrones = [
+        r'Cliente\s*N[\*°º:”“"\'’`]*\s*[:\-]?\s*(\d{5,15})',   # incluye comillas tipográficas
+        r'N[úu]mero de Cliente\s*[:\-]?\s*(\d{5,15})',
+        r'N[°º] Cliente\s*[:\-]?\s*(\d{5,15})',
+        r'N° de cliente\s*[:\-]?\s*(\d{5,15})',
+        r'Cliente\s*[:\-]?\s*(\d{5,15})',
+        r'Cliente\s*\n\s*(\d{5,15})'
+    ]
+    for patron in patrones:
+        match = re.search(patron, texto, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    return None
+
+def extraer_monto(texto):
+    match = re.search(r'Monto\s*(Total)?[:\s]*\$?\s*([\d.,]+)', texto, re.IGNORECASE)
+    if match:
+        monto_str = match.group(2).replace('.', '').replace(',', '.')
+        try:
+            return "{:.2f}".format(float(monto_str))
+        except:
+            return None
+    return None
+
+def parsear_factura_movistar(texto, codigos_barras):
+    datos = {}
+    datos['entidad_id'] = 3
+
+    codigo_movistar = next((c for c in codigos_barras if c.isdigit() and len(c) >= 30), None)
+
+    if codigo_movistar:
+        datos_codigo = extraer_datos_codigo_movistar(codigo_movistar)
+        datos.update({k: v for k, v in datos_codigo.items() if v is not None})
+
+    if not datos.get('cliente'):
+        cliente = extraer_nombre_cliente(texto)
+        if cliente:
+            datos['cliente'] = cliente
+
+    if not datos.get('vencimiento'):
+        venc = extraer_vencimiento(texto)
+        if venc:
+            datos['vencimiento'] = venc
+            if 'periodo' not in datos or not datos['periodo']:
+                datos['periodo'] = calcular_periodo_desde_vencimiento(venc)
+
+    if not datos.get('monto'):
+        monto = extraer_monto(texto)
+        if monto:
+            datos['monto'] = monto
 
     return datos

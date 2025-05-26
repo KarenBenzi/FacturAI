@@ -1,11 +1,15 @@
 import sys
 import os
+import psycopg2
 from utils.pdf_utils import convertir_pdf_a_imagen
 from utils.ocr import extraer_texto_de_imagen
 from utils.barcode_utils import extraer_codigos_barras
 from parsers.parser_metrogas import parsear_factura_metrogas
 from parsers.parser_edesur import parsear_factura_edesur
 from parsers.parser_movistar import parsear_factura_movistar
+from datetime import datetime
+from utils.db import conectar_postgresql, insertar_entidad_si_no_existe, insertar_factura
+
 
 # Añadir la ruta del proyecto (FacturAI) al PYTHONPATH
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
@@ -70,7 +74,6 @@ def main():
     Función principal para cargar las facturas, procesarlas y mostrar los resultados.
     """
     carpeta_facturas = 'facturas'  # Ruta a la carpeta donde están las facturas
-    
     facturas = cargar_facturas(carpeta_facturas)
     
     for factura in facturas:
@@ -79,10 +82,22 @@ def main():
             datos = despachar_parser(os.path.basename(factura), texto, codigos)
             
             print(f'\n✅ Factura procesada: {factura}')
-            print(f'Texto extraído (parcial): {texto[:100]}...')
             print(f'Datos extraídos: {datos}')
+
+            # 💾 Insertar en base de datos
+            nombre_entidad = datos.get("entidad", "EntidadDesconocida")
+            cuil_entidad = datos.get("cuil", "00000000000")
+
+            with conectar_postgresql() as conn:
+                with conn.cursor() as cur:
+                    entidad_id = insertar_entidad_si_no_existe(cur, nombre_entidad, cuil_entidad)
+                    insertar_factura(cur, entidad_id, datos)
+
+            print(f'✅ Factura cargada en la base de datos.\n')
+
         except Exception as e:
             print(f'\n❌ Error procesando la factura {factura}: {e}')
+
 
 if __name__ == "__main__":
     main()
