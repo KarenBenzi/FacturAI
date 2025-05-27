@@ -64,6 +64,7 @@ def parsear_factura_edesur(texto, codigos_barras):
     if codigo_largo:
         datos_codigo = extraer_datos_codigo_edesur(codigo_largo)
         datos.update({k: v for k, v in datos_codigo.items() if v is not None})
+        datos['codigo_barra'] = codigo_largo  
 
     # Si no se pudo obtener el número de cliente del código, intenta extraerlo desde el texto OCR
     if not datos.get('cliente'):

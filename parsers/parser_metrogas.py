@@ -123,6 +123,9 @@ def parsear_factura_metrogas(texto, codigos_barras):
         datos_codigo = extraer_datos_codigo_metrogas(codigo_largo)
         datos.update({k: v for k, v in datos_codigo.items() if v is not None})
 
+        # Agrego el código de barras completo
+        datos['codigo_barra'] = codigo_largo
+
     # Si no se pudo obtener el número de cliente del código, intenta extraerlo desde el texto OCR
     if not datos.get('cliente'):
         match = re.search(r'(?i)cliente:?\s*(\d+)', texto)

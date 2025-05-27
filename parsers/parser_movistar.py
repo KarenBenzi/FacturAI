@@ -93,9 +93,11 @@ def parsear_factura_movistar(texto, codigos_barras):
     datos = {}
     datos['entidad_id'] = 3
 
+    # Buscar el código de barras válido
     codigo_movistar = next((c for c in codigos_barras if c.isdigit() and len(c) >= 30), None)
 
     if codigo_movistar:
+        datos['codigo_barra'] = codigo_movistar  # ← Se agrega el código de barras
         datos_codigo = extraer_datos_codigo_movistar(codigo_movistar)
         datos.update({k: v for k, v in datos_codigo.items() if v is not None})
 
