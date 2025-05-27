@@ -44,7 +44,8 @@ def insertar_factura(cur, datos):
         float(datos['monto']),
         datos['codigo_barra'],
         vencimiento_date,
-        datos['periodo']
-    )
+        datos['periodo'],
+        datos.get('condicion_iva')  # Puede ser None si no viene
+)
     cur.execute(query, valores)
     return True

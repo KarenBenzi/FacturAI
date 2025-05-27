@@ -58,6 +58,11 @@ def despachar_parser(nombre_archivo, texto, codigos_barras):
     Returns:
         dict: Datos extraídos de la factura (según el tipo de empresa).
     """
+    ####===== DESCOMENTAR ESTE PRINT PARA DEBUGGING =====####
+    
+    #print(texto)
+
+    ####=================================================####
     nombre = nombre_archivo.lower()
 
     if 'metrogas' in nombre:

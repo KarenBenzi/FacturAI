@@ -52,6 +52,7 @@ def extraer_vencimiento(texto):
         r'Fecha vencimiento[:\s]*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',
         r'Fecha de pago hasta[:\s]*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',
         r'Vencimiento factura[:\s]*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',
+        r'Próximo Vencimiento Estimado\s*([0-3]?\d[/\-][01]?\d[/\-]\d{4})',  # agregado para Movistar
     ]
     for patron in patrones:
         match = re.search(patron, texto, re.IGNORECASE)
@@ -89,6 +90,34 @@ def extraer_monto(texto):
             return None
     return None
 
+def extraer_condicion_iva_movistar(texto):
+    # Detecta y normaliza condición IVA, especialmente "Cons. Final" -> "Consumidor Final"
+    patrones = [
+        r'IVA\s*-\s*Cons\.? Final',
+        r'Condición frente al IVA[:\s]*([^\n\.]+)',
+        r'Condicion frente al IVA[:\s]*([^\n\.]+)',
+        r'Condición IVA[:\s]*([^\n\.]+)',
+        r'Condicion IVA[:\s]*([^\n\.]+)'
+    ]
+    for patron in patrones:
+        match = re.search(patron, texto, re.IGNORECASE)
+        if match:
+            if patron == r'IVA\s*-\s*Cons\.? Final':
+                return "Consumidor Final"
+            else:
+                cond = match.group(1).strip()
+                cond_lower = cond.lower()
+                if "cons final" in cond_lower or "consumidor final" in cond_lower:
+                    return "Consumidor Final"
+                elif "responsable inscripto" in cond_lower:
+                    return "Resp Inscripto"
+                elif "exento" in cond_lower:
+                    return "Exento"
+                else:
+                    cond_limpia = re.sub(r'[^a-zA-Z\s]', '', cond).strip()
+                    return cond_limpia.title()
+    return None
+
 def parsear_factura_movistar(texto, codigos_barras):
     datos = {}
     datos['entidad_id'] = 3
@@ -117,5 +146,10 @@ def parsear_factura_movistar(texto, codigos_barras):
         monto = extraer_monto(texto)
         if monto:
             datos['monto'] = monto
+
+    # EXTRAEMOS CONDICION IVA
+    condicion_iva = extraer_condicion_iva_movistar(texto)
+    if condicion_iva:
+        datos['condicion_iva'] = condicion_iva
 
     return datos
