@@ -25,24 +25,26 @@ def insertar_entidad_si_no_existe(cursor, nombre, cuil):
         """, (nombre, cuil))
         return cursor.fetchone()[0]
 
-def insertar_factura(cursor, entidad_id, datos):
-    # Convertir vencimiento a formato fecha
-    vencimiento = None
-    if datos.get("vencimiento"):
-        try:
-            vencimiento = datetime.strptime(datos["vencimiento"], "%d/%m/%Y").date()
-        except:
-            vencimiento = None
+def insertar_factura(cur, datos):
+    from datetime import datetime
+    vencimiento_date = datetime.strptime(datos['vencimiento'], '%d/%m/%Y').date()
 
-    cursor.execute("""
-        INSERT INTO facturas (entidad_id, monto, cliente, domicilio, medidor, vencimiento, periodo)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (
-        entidad_id,
-        float(datos.get("monto", 0)) if datos.get("monto") else None,
-        datos.get("cliente"),
-        datos.get("domicilio"),
-        datos.get("medidor"),
-        vencimiento,
-        datos.get("periodo")
-    ))
+    # Verificar si el codigo_barra ya existe
+    cur.execute("SELECT 1 FROM facturas WHERE codigo_barra = %s", (datos['codigo_barra'],))
+    if cur.fetchone():
+        return False  # Ya existe
+
+    query = """
+    INSERT INTO facturas (entidad_id, cliente, monto, codigo_barra, vencimiento, periodo)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    """
+    valores = (
+        datos['entidad_id'],
+        datos['cliente'],
+        float(datos['monto']),
+        datos['codigo_barra'],
+        vencimiento_date,
+        datos['periodo']
+    )
+    cur.execute(query, valores)
+    return True

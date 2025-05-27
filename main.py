@@ -84,18 +84,17 @@ def main():
             print(f'\n Factura procesada: {factura}')
             print(f'Datos extraídos: {datos}')
 
-            # 💾 Insertar en base de datos (sin entidad)
             with conectar_postgresql() as conn:
                 with conn.cursor() as cur:
-                    insertar_factura(cur, datos)
+                    inserted = insertar_factura(cur, datos)
+                    if inserted:
+                        print(f' Factura cargada en la base de datos.\n')
+                    else:
+                        print(f' La factura con código de barra {datos["codigo_barra"]} ya fue cargada previamente.\n')
 
-            print(f'✅ Factura cargada en la base de datos.\n')
-
-        except Exception:
+        except Exception as e:
             pass
-# Codigo correcto para verificar errores en el procesamiento de la factura:
-#       except Exception as e:
-#           print(f'Error procesando la factura {factura}: {e}')
+            #print(f'Error procesando la factura {factura}: {e}')
 
 if __name__ == "__main__":
     main()
