@@ -9,7 +9,7 @@ def conectar_postgresql():
         port="5432",
         dbname="facturas_db",
         user="tu_usuario",
-        password="Argentina5_"
+        password="*******"
     )
 
 def insertar_entidad_si_no_existe(cursor, nombre, cuil):
