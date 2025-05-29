@@ -1,0 +1,7 @@
+pdf2image
+pytesseract
+opencv-python
+Pillow
+python-barcode
+pyzbar
+numpy
