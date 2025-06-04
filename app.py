@@ -7,7 +7,6 @@ from flask import (
 from werkzeug.utils import secure_filename
 from io import StringIO, BytesIO
 
-# Importar funciones desde tu código existente
 from main import procesar_factura, despachar_parser, conectar_sqlserver, insertar_factura
 
 UPLOAD_FOLDER = 'uploads'
@@ -33,28 +32,24 @@ def procesar():
         flash('No se seleccionaron archivos')
         return redirect(url_for('index'))
 
-    # Capturamos el CUIL enviado desde el formulario
-    cuil_ingresado = request.form.get('cuil')
-
     files = request.files.getlist('files[]')
     resultados = []
 
-    for file in files:
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
+    try:
+        with conectar_sqlserver() as conn:
+            cursor = conn.cursor()
 
-            try:
-                texto, imagen_cv, codigos = procesar_factura(filepath)
-                datos = despachar_parser(filename, texto, codigos)
-                datos['archivo'] = filename
+            for file in files:
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
 
-                # Agregamos el CUIL al diccionario de datos
-                datos['cuil'] = cuil_ingresado
+                    try:
+                        texto, imagen_cv, codigos = procesar_factura(filepath)
+                        datos = despachar_parser(filename, texto, codigos)
+                        datos['archivo'] = filename
 
-                with conectar_sqlserver() as conn:
-                    with conn.cursor() as cursor:
                         inserted = insertar_factura(cursor, datos)
                         if inserted:
                             conn.commit()
@@ -64,17 +59,27 @@ def procesar():
                                 'archivo': filename,
                                 'error': f"La factura con código {datos['codigo_barra']} ya fue cargada previamente."
                             })
-            except Exception as e:
-                resultados.append({'archivo': filename, 'error': str(e)})
-        else:
-            resultados.append({'archivo': file.filename, 'error': 'Formato no permitido'})
+                    except Exception as e:
+                        resultados.append({'archivo': filename, 'error': str(e)})
+
+                    # Borrar archivo aquí, fuera del try-except interno
+                    try:
+                        os.remove(filepath)
+                    except Exception as e:
+                        print(f"Error al eliminar el archivo {filepath}: {e}")
+                else:
+                    resultados.append({'archivo': file.filename, 'error': 'Formato no permitido'})
+
+    except Exception as e:
+        flash(f'Error al conectar con la base de datos: {e}')
+        return redirect(url_for('index'))
 
     session['resultados'] = resultados
     return redirect(url_for('resultados'))
 
 @app.route('/resultados', methods=['GET'])
 def resultados():
-    resultados = session.get('resultados', [])
+    resultados = session.get('resultados')
     if not resultados:
         flash("No hay resultados disponibles.")
         return redirect(url_for('index'))
@@ -82,7 +87,11 @@ def resultados():
 
 @app.route('/descargar_csv')
 def descargar_csv():
-    resultados = session.get('resultados', [])
+    resultados = session.get('resultados')
+    if not resultados:
+        flash("No hay resultados para descargar.")
+        return redirect(url_for('index'))
+
     si = StringIO()
     writer = csv.writer(si)
 
@@ -94,7 +103,6 @@ def descargar_csv():
     for r in resultados:
         if 'error' in r:
             continue
-
         datos = r['datos']
         entidad = {
             1: 'Edesur',
