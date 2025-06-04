@@ -2,28 +2,64 @@ import sys
 import os
 from datetime import datetime
 
-import psycopg2
+import pyodbc
 from utils.pdf_utils import convertir_pdf_a_imagen
 from utils.ocr import extraer_texto_de_imagen
 from utils.barcode_utils import extraer_codigos_barras
 from parsers.parser_metrogas import parsear_factura_metrogas
 from parsers.parser_edesur import parsear_factura_edesur
 from parsers.parser_movistar import parsear_factura_movistar
-from utils.db import conectar_postgresql, insertar_factura
 
 # Añadir la ruta del proyecto (FacturAI) al PYTHONPATH
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
+def conectar_sqlserver():
+    conn = pyodbc.connect(
+        'DRIVER={ODBC Driver 17 for SQL Server};'
+        'SERVER=DESKTOP-UOLF2LM;'
+        'DATABASE=FacturAI_DB;'
+        'Trusted_Connection=yes;'
+        'TrustServerCertificate=yes;'
+    )
+    return conn
+
+def insertar_factura(cursor, datos):
+    # Verificar si ya existe
+    cursor.execute("SELECT COUNT(1) FROM Facturas WHERE codigo_barra = ?", datos['codigo_barra'])
+    if cursor.fetchone()[0] > 0:
+        return False
+
+    # Convertir vencimiento de str a datetime
+    try:
+        fecha_vencimiento = datetime.strptime(datos['vencimiento'], '%d/%m/%Y')
+    except ValueError:
+        raise ValueError(f"Formato de vencimiento inválido: {datos['vencimiento']}")
+
+    # Convertir periodo de str a datetime (usamos día 1 del mes por convención)
+    try:
+        periodo_dt = datetime.strptime(datos['periodo'], '%m/%Y')
+    except ValueError:
+        raise ValueError(f"Formato de periodo inválido: {datos['periodo']}")
+
+    sql = """
+    INSERT INTO Facturas (archivo, entidad_id, cliente, monto, vencimiento, periodo, condicion_iva, codigo_barra, cuil)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    params = (
+        datos.get('archivo'),
+        datos.get('entidad_id'),
+        datos.get('cliente'),
+        datos.get('monto'),
+        fecha_vencimiento,
+        periodo_dt,
+        datos.get('condicion_iva'),
+        datos.get('codigo_barra'),
+        datos.get('cuil'),   # <-- Nuevo campo CUIL
+    )
+    cursor.execute(sql, params)
+    return True
+
 def cargar_facturas(carpeta):
-    """
-    Carga todas las facturas en formato PDF desde la carpeta especificada.
-    
-    Args:
-        carpeta (str): Ruta de la carpeta donde se encuentran las facturas.
-    
-    Returns:
-        list: Lista con las rutas de las facturas PDF encontradas.
-    """
     facturas = []
     for archivo in os.listdir(carpeta):
         if archivo.endswith('.pdf'):
@@ -31,40 +67,13 @@ def cargar_facturas(carpeta):
     return facturas
 
 def procesar_factura(pdf_path):
-    """
-    Procesa una factura PDF, extrayendo texto, imagen y códigos de barras.
-    
-    Args:
-        pdf_path (str): Ruta del archivo PDF a procesar.
-    
-    Returns:
-        tuple: texto extraído, imagen en OpenCV, códigos de barras extraídos.
-    """
     imagen = convertir_pdf_a_imagen(pdf_path)
     texto, imagen_cv = extraer_texto_de_imagen(imagen)
     codigos = extraer_codigos_barras(imagen_cv)
-
     return texto, imagen_cv, codigos
 
 def despachar_parser(nombre_archivo, texto, codigos_barras):
-    """
-    Despacha el parser adecuado basado en el nombre del archivo.
-    
-    Args:
-        nombre_archivo (str): Nombre del archivo de la factura.
-        texto (str): Texto extraído de la factura.
-        codigos_barras (list): Lista de códigos de barras extraídos.
-    
-    Returns:
-        dict: Datos extraídos de la factura (según el tipo de empresa).
-    """
-    ####===== DESCOMENTAR ESTE PRINT PARA DEBUGGING =====####
-    
-    #print(texto)
-
-    ####=================================================####
     nombre = nombre_archivo.lower()
-
     if 'metrogas' in nombre:
         return parsear_factura_metrogas(texto, codigos_barras)
     elif 'edesur' in nombre:
@@ -72,34 +81,35 @@ def despachar_parser(nombre_archivo, texto, codigos_barras):
     elif 'movistar' in nombre:
         return parsear_factura_movistar(texto, codigos_barras)
     else:
-        raise ValueError("No se encontró parser para el tipo de factura.")
+        raise ValueError("No se encontró módulo para el tipo de factura.")
 
 def main():
-    """
-    Función principal para cargar las facturas, procesarlas y mostrar los resultados.
-    """
-    carpeta_facturas = 'facturas'  # Ruta a la carpeta donde están las facturas
+    carpeta_facturas = 'facturas'
     facturas = cargar_facturas(carpeta_facturas)
-    
-    for factura in facturas:
-        try:
-            texto, imagen_cv, codigos = procesar_factura(factura)
-            datos = despachar_parser(os.path.basename(factura), texto, codigos)
-            
-            print(f'\n Factura procesada: {factura}')
-            print(f'Datos extraídos: {datos}')
 
-            with conectar_postgresql() as conn:
-                with conn.cursor() as cur:
-                    inserted = insertar_factura(cur, datos)
+    conn = conectar_sqlserver()
+    try:
+        for factura in facturas:
+            try:
+                texto, imagen_cv, codigos = procesar_factura(factura)
+                datos = despachar_parser(os.path.basename(factura), texto, codigos)
+                datos['archivo'] = os.path.basename(factura)
+
+                print(f'\nFactura procesada: {factura}')
+                print(f'Datos extraídos: {datos}')
+
+                with conn.cursor() as cursor:
+                    inserted = insertar_factura(cursor, datos)
                     if inserted:
-                        print(f' Factura cargada en la base de datos.\n')
+                        conn.commit()
+                        print('Factura cargada en la base de datos.\n')
                     else:
-                        print(f' La factura con código de barra {datos["codigo_barra"]} ya fue cargada previamente.\n')
+                        print(f'La factura con código de barra {datos["codigo_barra"]} ya fue cargada previamente.\n')
 
-        except Exception as e:
-            pass
-            #print(f'Error procesando la factura {factura}: {e}')
+            except Exception as e:
+                print(f'Error procesando la factura {factura}: {e}')
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     main()

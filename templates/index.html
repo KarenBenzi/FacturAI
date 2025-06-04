@@ -99,6 +99,23 @@
         onsubmit="showLoading()"
       >
         <div class="mb-3">
+          <label for="cuil" class="form-label">CUIL (11 dígitos)</label>
+          <input
+            type="text"
+            class="form-control"
+            id="cuil"
+            name="cuil"
+            inputmode="numeric"
+            pattern="\d{11}"
+            maxlength="11"
+            minlength="11"
+            required
+            placeholder="Ej: 20123456789"
+            title="Ingrese exactamente 11 dígitos numéricos"
+          />
+        </div>
+
+        <div class="mb-3">
           <label for="pdfFiles" class="form-label">Selecciona los archivos PDF</label>
           <input
             type="file"

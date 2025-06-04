@@ -1,51 +1,45 @@
-# utils/db.py
-
-import psycopg2
-from datetime import datetime
-
-def conectar_postgresql():
-    return psycopg2.connect(
-        host="localhost",
-        port="5432",
-        dbname="facturas_db",
-        user="tu_usuario",
-        password="*******"
-    )
-
-def insertar_entidad_si_no_existe(cursor, nombre, cuil):
-    cursor.execute("""
-        SELECT id FROM entidad WHERE nombre = %s AND cuil = %s
-    """, (nombre, cuil))
-    result = cursor.fetchone()
-    if result:
-        return result[0]
-    else:
-        cursor.execute("""
-            INSERT INTO entidad (nombre, cuil) VALUES (%s, %s) RETURNING id
-        """, (nombre, cuil))
-        return cursor.fetchone()[0]
-
-def insertar_factura(cur, datos):
-    from datetime import datetime
-    vencimiento_date = datetime.strptime(datos['vencimiento'], '%d/%m/%Y').date()
-
-    # Verificar si el codigo_barra ya existe
-    cur.execute("SELECT 1 FROM facturas WHERE codigo_barra = %s", (datos['codigo_barra'],))
-    if cur.fetchone():
-        return False  # Ya existe
-
-    query = """
-    INSERT INTO facturas (entidad_id, cliente, monto, codigo_barra, vencimiento, periodo)
-    VALUES (%s, %s, %s, %s, %s, %s)
+def insertar_factura(cursor, datos):
     """
-    valores = (
-        datos['entidad_id'],
-        datos['cliente'],
-        float(datos['monto']),
-        datos['codigo_barra'],
-        vencimiento_date,
-        datos['periodo'],
-        datos.get('condicion_iva')  # Puede ser None si no viene
-)
-    cur.execute(query, valores)
+    Inserta una factura en la base de datos si no existe ya una con el mismo código de barras.
+    
+    Args:
+        cursor: Cursor de la base de datos.
+        datos: Diccionario con los datos extraídos de la factura.
+    
+    Returns:
+        bool: True si se insertó, False si ya existía.
+    """
+    # Buscar entidad_id
+    cursor.execute("SELECT id FROM Entidades WHERE cuit = %s", (datos['cuit'],))
+    entidad = cursor.fetchone()
+
+    if not entidad:
+        print(f"Entidad con CUIT {datos['cuit']} no encontrada.")
+        return False
+
+    entidad_id = entidad[0]
+
+    # Verificar si ya existe la factura por código de barras
+    cursor.execute("SELECT 1 FROM Facturas WHERE codigo_barra = %s", (datos['codigo_barra'],))
+    if cursor.fetchone():
+        return False
+
+    # Insertar factura
+    cursor.execute("""
+        INSERT INTO Facturas (
+            archivo, entidad_id, cliente, monto, vencimiento, periodo,
+            condicion_iva, codigo_barra, fecha_carga
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, GETDATE())
+    """, (
+        datos['archivo'],
+        entidad_id,
+        datos.get('cliente'),
+        datos.get('monto'),
+        datos.get('vencimiento'),
+        datos.get('periodo'),
+        datos.get('condicion_iva'),
+        datos.get('codigo_barra')
+    ))
+
     return True

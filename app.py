@@ -1,14 +1,21 @@
 import os
-from flask import Flask, request, render_template, redirect, url_for, flash
+import csv
+from flask import (
+    Flask, request, render_template, redirect,
+    url_for, flash, session, send_file
+)
 from werkzeug.utils import secure_filename
-from main import procesar_factura, despachar_parser
+from io import StringIO, BytesIO
 
-UPLOAD_FOLDER = 'uploads'  # carpeta temporal para guardar PDFs subidos
+# Importar funciones desde tu código existente
+from main import procesar_factura, despachar_parser, conectar_sqlserver, insertar_factura
+
+UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf'}
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.secret_key = 'tu_clave_secreta'  # para mensajes flash
+app.secret_key = 'tu_clave_secreta'
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -18,13 +25,16 @@ def allowed_file(filename):
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')  # formulario para subir PDFs
+    return render_template('index.html')
 
 @app.route('/procesar', methods=['POST'])
 def procesar():
     if 'files[]' not in request.files:
         flash('No se seleccionaron archivos')
-        return redirect(request.url)
+        return redirect(url_for('index'))
+
+    # Capturamos el CUIL enviado desde el formulario
+    cuil_ingresado = request.form.get('cuil')
 
     files = request.files.getlist('files[]')
     resultados = []
@@ -38,11 +48,83 @@ def procesar():
             try:
                 texto, imagen_cv, codigos = procesar_factura(filepath)
                 datos = despachar_parser(filename, texto, codigos)
-                resultados.append({'archivo': filename, 'datos': datos})
+                datos['archivo'] = filename
+
+                # Agregamos el CUIL al diccionario de datos
+                datos['cuil'] = cuil_ingresado
+
+                with conectar_sqlserver() as conn:
+                    with conn.cursor() as cursor:
+                        inserted = insertar_factura(cursor, datos)
+                        if inserted:
+                            conn.commit()
+                            resultados.append({'archivo': filename, 'datos': datos})
+                        else:
+                            resultados.append({
+                                'archivo': filename,
+                                'error': f"La factura con código {datos['codigo_barra']} ya fue cargada previamente."
+                            })
             except Exception as e:
                 resultados.append({'archivo': filename, 'error': str(e)})
+        else:
+            resultados.append({'archivo': file.filename, 'error': 'Formato no permitido'})
 
+    session['resultados'] = resultados
+    return redirect(url_for('resultados'))
+
+@app.route('/resultados', methods=['GET'])
+def resultados():
+    resultados = session.get('resultados', [])
+    if not resultados:
+        flash("No hay resultados disponibles.")
+        return redirect(url_for('index'))
     return render_template('resultados.html', resultados=resultados)
+
+@app.route('/descargar_csv')
+def descargar_csv():
+    resultados = session.get('resultados', [])
+    si = StringIO()
+    writer = csv.writer(si)
+
+    writer.writerow([
+        'Archivo', 'Entidad', 'Código de barra', 'Cliente', 'Monto',
+        'Vencimiento', 'Periodo', 'Condición IVA', 'Estado'
+    ])
+
+    for r in resultados:
+        if 'error' in r:
+            continue
+
+        datos = r['datos']
+        entidad = {
+            1: 'Edesur',
+            2: 'Metrogas',
+            3: 'Movistar'
+        }.get(datos.get('entidad_id'), 'Desconocida')
+
+        writer.writerow([
+            r['archivo'],
+            entidad,
+            datos.get('codigo_barra', ''),
+            datos.get('cliente', ''),
+            datos.get('monto', ''),
+            datos.get('vencimiento', ''),
+            datos.get('periodo', ''),
+            datos.get('condicion_iva', ''),
+            'Procesado'
+        ])
+
+    output = BytesIO()
+    output.write(si.getvalue().encode('utf-8'))
+    output.seek(0)
+    si.close()
+
+    return send_file(
+        output,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='facturas_procesadas.csv'
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
