@@ -32,8 +32,12 @@ def procesar():
         flash('No se seleccionaron archivos')
         return redirect(url_for('index'))
 
+    # ✅ Recuperar el CUIL del formulario
+    cuil = request.form.get('cuil')
+
     files = request.files.getlist('files[]')
     resultados = []
+    primer_cuil_extraido = None  # Para guardar el primer CUIL extraído de los datos procesados
 
     try:
         with conectar_sqlserver() as conn:
@@ -49,6 +53,11 @@ def procesar():
                         texto, imagen_cv, codigos = procesar_factura(filepath)
                         datos = despachar_parser(filename, texto, codigos)
                         datos['archivo'] = filename
+                        datos['cuil'] = cuil  # Incluir CUIL del formulario
+
+                        # Guardar el primer CUIL extraído si existe
+                        if not primer_cuil_extraido and datos.get('cuil'):
+                            primer_cuil_extraido = datos['cuil']
 
                         inserted = insertar_factura(cursor, datos)
                         if inserted:
@@ -62,7 +71,6 @@ def procesar():
                     except Exception as e:
                         resultados.append({'archivo': filename, 'error': str(e)})
 
-                    # Borrar archivo aquí, fuera del try-except interno
                     try:
                         os.remove(filepath)
                     except Exception as e:
@@ -75,15 +83,21 @@ def procesar():
         return redirect(url_for('index'))
 
     session['resultados'] = resultados
+
+    # ✅ Guardar el CUIL en la sesión (primer extraído o el del formulario)
+    session['cuil'] = primer_cuil_extraido or cuil
+
     return redirect(url_for('resultados'))
 
 @app.route('/resultados', methods=['GET'])
 def resultados():
     resultados = session.get('resultados')
+    cuil = session.get('cuil')  # Obtener CUIL desde la sesión
     if not resultados:
         flash("No hay resultados disponibles.")
         return redirect(url_for('index'))
-    return render_template('resultados.html', resultados=resultados)
+    # Pasar el CUIL a la plantilla
+    return render_template('resultados.html', resultados=resultados, cuil=cuil)
 
 @app.route('/descargar_csv')
 def descargar_csv():
@@ -97,7 +111,7 @@ def descargar_csv():
 
     writer.writerow([
         'Archivo', 'Entidad', 'Código de barra', 'Cliente', 'Monto',
-        'Vencimiento', 'Periodo', 'Condición IVA', 'Estado'
+        'Vencimiento', 'Periodo', 'Condición IVA', 'CUIL', 'Estado'
     ])
 
     for r in resultados:
@@ -119,6 +133,7 @@ def descargar_csv():
             datos.get('vencimiento', ''),
             datos.get('periodo', ''),
             datos.get('condicion_iva', ''),
+            datos.get('cuil', ''),  # Agregar CUIL en CSV
             'Procesado'
         ])
 
