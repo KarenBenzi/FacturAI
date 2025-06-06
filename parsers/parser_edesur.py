@@ -92,24 +92,40 @@ def parsear_factura_edesur(texto, codigos_barras):
         if match:
             datos['periodo'] = match.group(1)
 
-    # ✅ Extrae la condición frente al IVA desde el texto
+    # ✅ Extrae la condición frente al IVA desde el texto (corregido)
     if not datos.get('condicion_iva'):
-        # 1. Busca el caso específico "CUIT: Consumidor Final" u otras condiciones después de "CUIT:"
-        match = re.search(r'CUIT:\s*([A-Za-z\s\n]+)', texto, re.IGNORECASE)
-        if match:
-            condicion = match.group(1).strip().split('\n')[0].strip()
-            if any(c in condicion.lower() for c in ['consumidor', 'monotributista', 'responsable']):
-                datos['condicion_iva'] = condicion
+        # Lista de condiciones válidas
+        condiciones_validas = [
+            "consumidor final",
+            "monotributista",
+            "responsable inscripto",
+            "exento",
+            "no responsable",
+            "sujeto no categorizado"
+        ]
 
-        # 2. Si no se encontró en CUIT, intenta con "Curr" o "Condición IVA"
+        # Buscar línea tipo "CUIT: Consumidor Final"
+        match = re.search(r'CUIT:\s*([A-Za-z\s]+)', texto, re.IGNORECASE)
+        if match:
+            posible_condicion = match.group(1).strip().lower().split('\n')[0]
+            for condicion in condiciones_validas:
+                if condicion in posible_condicion:
+                    datos['condicion_iva'] = condicion.title()
+                    break
+
+        # Si no encontró, buscar por Curr / Condición IVA
         if not datos.get('condicion_iva'):
             match = re.search(r'(?i)(?:Curr|Condición\s*IVA):?\s*([A-Za-z\s\n]+)', texto)
             if match:
-                condicion = match.group(1).strip().split('\n')[0].strip()
-                datos['condicion_iva'] = condicion
+                posible_condicion = match.group(1).strip().lower().split('\n')[0]
+                for condicion in condiciones_validas:
+                    if condicion in posible_condicion:
+                        datos['condicion_iva'] = condicion.title()
+                        break
 
-    # 3. Como último recurso, usa patrones predefinidos
+    # Último recurso: patrones genéricos
     if not datos.get('condicion_iva'):
         datos['condicion_iva'] = extraer_condicion_iva(texto)
 
     return datos
+

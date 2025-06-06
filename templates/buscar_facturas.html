@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Buscar Facturas por CUIL</title>
+</head>
+<body>
+    <h1>Facturas encontradas para CUIL: {{ cuil }}</h1>
+
+    {% if facturas %}
+   <table border="1">
+    <tr>
+        <th>Archivo</th>
+        <th>Entidad</th>
+        <th>Código de Barra</th>
+        <th>Cliente</th>
+        <th>Monto</th>
+        <th>Vencimiento</th>
+        <th>Periodo</th>
+        <th>Condición IVA</th>
+        <th>CUIL</th>        
+        <th>Fecha carga</th>
+
+    </tr>
+    {% for f in facturas %}
+    <tr>
+        <td>{{ f.Archivo }}</td>
+        <td>
+            {% if f.Entidad_id == 1 %}
+                Edesur
+            {% elif f.Entidad_id == 2 %}
+                Metrogas
+            {% elif f.Entidad_id == 3 %}
+                Movistar
+            {% else %}
+                Desconocida
+            {% endif %}
+        </td>
+        <td>{{ f.Codigo_Barra }}</td>
+        <td>{{ f.Cliente }}</td>
+        <td>{{ f.Monto }}</td>
+        <td>{{ f.Vencimiento }}</td>
+        <td>{{ f.Periodo }}</td>
+        <td>{{ f.Condicion_IVA }}</td>
+        <td>{{ f.CUIL }}</td>
+        <td>{{ f.fecha_carga }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+    {% else %}
+        <p>No se encontraron facturas para el CUIL ingresado.</p>
+    {% endif %}
+
+    <br>
+    <a href="{{ url_for('index') }}">Volver al inicio</a>
+</body>
+</html>

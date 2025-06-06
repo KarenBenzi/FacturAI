@@ -1,6 +1,7 @@
 import sys
 import os
 from datetime import datetime
+import re
 
 import pyodbc
 from utils.pdf_utils import convertir_pdf_a_imagen
@@ -70,6 +71,9 @@ def procesar_factura(pdf_path):
     imagen = convertir_pdf_a_imagen(pdf_path)
     texto, imagen_cv = extraer_texto_de_imagen(imagen)
     codigos = extraer_codigos_barras(imagen_cv)
+    #============================#
+    #print(texto)
+    #============================#
     return texto, imagen_cv, codigos
 
 def despachar_parser(nombre_archivo, texto, codigos_barras):
@@ -82,6 +86,33 @@ def despachar_parser(nombre_archivo, texto, codigos_barras):
         return parsear_factura_movistar(texto, codigos_barras)
     else:
         raise ValueError("No se encontró módulo para el tipo de factura.")
+    
+    #=============BUSCAR FACTURAS==================#
+
+def buscar_facturas_por_cuil(cursor, cuil, entidad_id=None):
+    query = """
+        SELECT Archivo, Entidad_id, Codigo_Barra, Cliente, Monto, Vencimiento,
+               Periodo, Condicion_IVA, CUIL
+        FROM Facturas
+        WHERE CUIL = ?
+    """
+    params = [cuil]
+
+    if entidad_id:
+        query += " AND Entidad_id = ?"
+        params.append(entidad_id)
+
+    # Puedes quitar los prints si ya no los necesitas
+    # print("Ejecutando consulta:", query)
+    # print("Con parámetros:", params)
+
+    cursor.execute(query, params)
+    columnas = [column[0] for column in cursor.description]
+    resultados = cursor.fetchall()
+    # print(f"Facturas encontradas: {resultados}")
+    return [dict(zip(columnas, fila)) for fila in resultados]
+
+    #===============================#
 
 def main():
     carpeta_facturas = 'facturas'

@@ -7,7 +7,12 @@ from flask import (
 from werkzeug.utils import secure_filename
 from io import StringIO, BytesIO
 
-from main import procesar_factura, despachar_parser, conectar_sqlserver, insertar_factura
+# ✅ NUEVO: importar la función de búsqueda
+from main import (
+    procesar_factura, despachar_parser,
+    conectar_sqlserver, insertar_factura,
+    buscar_facturas_por_cuil  # ✅ NUEVO
+)
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pdf'}
@@ -32,12 +37,10 @@ def procesar():
         flash('No se seleccionaron archivos')
         return redirect(url_for('index'))
 
-    # ✅ Recuperar el CUIL del formulario
     cuil = request.form.get('cuil')
-
     files = request.files.getlist('files[]')
     resultados = []
-    primer_cuil_extraido = None  # Para guardar el primer CUIL extraído de los datos procesados
+    primer_cuil_extraido = None
 
     try:
         with conectar_sqlserver() as conn:
@@ -53,9 +56,8 @@ def procesar():
                         texto, imagen_cv, codigos = procesar_factura(filepath)
                         datos = despachar_parser(filename, texto, codigos)
                         datos['archivo'] = filename
-                        datos['cuil'] = cuil  # Incluir CUIL del formulario
+                        datos['cuil'] = cuil
 
-                        # Guardar el primer CUIL extraído si existe
                         if not primer_cuil_extraido and datos.get('cuil'):
                             primer_cuil_extraido = datos['cuil']
 
@@ -83,8 +85,6 @@ def procesar():
         return redirect(url_for('index'))
 
     session['resultados'] = resultados
-
-    # ✅ Guardar el CUIL en la sesión (primer extraído o el del formulario)
     session['cuil'] = primer_cuil_extraido or cuil
 
     return redirect(url_for('resultados'))
@@ -92,11 +92,10 @@ def procesar():
 @app.route('/resultados', methods=['GET'])
 def resultados():
     resultados = session.get('resultados')
-    cuil = session.get('cuil')  # Obtener CUIL desde la sesión
+    cuil = session.get('cuil')
     if not resultados:
         flash("No hay resultados disponibles.")
         return redirect(url_for('index'))
-    # Pasar el CUIL a la plantilla
     return render_template('resultados.html', resultados=resultados, cuil=cuil)
 
 @app.route('/descargar_csv')
@@ -108,7 +107,6 @@ def descargar_csv():
 
     si = StringIO()
     writer = csv.writer(si)
-
     writer.writerow([
         'Archivo', 'Entidad', 'Código de barra', 'Cliente', 'Monto',
         'Vencimiento', 'Periodo', 'Condición IVA', 'CUIL', 'Estado'
@@ -133,7 +131,7 @@ def descargar_csv():
             datos.get('vencimiento', ''),
             datos.get('periodo', ''),
             datos.get('condicion_iva', ''),
-            datos.get('cuil', ''),  # Agregar CUIL en CSV
+            datos.get('cuil', ''),
             'Procesado'
         ])
 
@@ -148,6 +146,31 @@ def descargar_csv():
         as_attachment=True,
         download_name='facturas_procesadas.csv'
     )
+
+# ✅ NUEVO: ruta para buscar facturas por CUIL
+@app.route('/buscar_facturas', methods=['GET'])
+def buscar_facturas():
+    cuil = request.args.get('cuil')
+    entidad_id = request.args.get('entidad_id')
+    
+    if not cuil:
+        flash("Debe ingresar un CUIL para buscar.")
+        return redirect(url_for('index'))
+
+    try:
+        with conectar_sqlserver() as conn:
+            cursor = conn.cursor()
+            facturas = buscar_facturas_por_cuil(cursor, cuil, entidad_id if entidad_id else None)
+            if not facturas:
+                flash(f"No se encontraron facturas para el CUIL: {cuil}")
+                return redirect(url_for('index'))
+            return render_template('buscar_facturas.html', facturas=facturas, cuil=cuil)
+    except Exception as e:
+        flash(f"Error al buscar facturas: {e}")
+        return redirect(url_for('index'))
+
+
+# 🔚 FIN DEL BLOQUE NUEVO
 
 if __name__ == "__main__":
     app.run(debug=True)
