@@ -9,84 +9,94 @@
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-  <style>
-    /* Paleta de colores: 
-       #4a3333 (oscuro marrón), #e1473f (rojo fuerte), #9a9088 (gris topo),
-       #80b0ab (verde agua), #dbd1b3 (beige claro) */
+<style>
+  body {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
 
-    body {
-      background-color: #dbd1b3;
-      color: #4a3333;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
+  h1, h2 {
+    font-weight: 700;
+    color: #4a4eb4;
+  }
 
-    h1 {
-      font-weight: 700;
-      color: #4a3333;
-    }
+  .card {
+    background-color: #1a1a1a;
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  }
 
-    .card {
-      background-color: #9a9088;
-      border: none;
-      border-radius: 1rem;
-      box-shadow: 0 8px 20px rgba(74, 51, 51, 0.25);
-    }
+  label {
+    font-weight: 600;
+    color: #ffffff;
+  }
 
-    label {
-      font-weight: 600;
-      color: #4a3333;
-    }
+  .form-control {
+    background-color: #121212;
+    border: 2px solid #4a4eb4;
+    color: #ffffff;
+    font-weight: 600;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
 
-    .form-control {
-      background-color: #dbd1b3;
-      border: 2px solid #4a3333;
-      color: #4a3333;
-      font-weight: 600;
-      transition: border-color 0.3s ease;
-    }
+  .form-control:focus {
+    border-color: #0030db;
+    box-shadow: 0 0 8px #0030db;
+    background-color: #121212;
+    color: #ffffff;
+  }
 
-    .form-control:focus {
-      border-color: #e1473f;
-      box-shadow: 0 0 8px #e1473f;
-      background-color: #fff;
-      color: #4a3333;
-    }
+  .btn-primary {
+    background-color: #4a4eb4;
+    border: none;
+    font-weight: 700;
+    font-size: 1.1rem;
+    transition: background-color 0.3s ease;
+    border-radius: 50px;
+    padding: 0.6rem 2rem;
+    box-shadow: 0 6px 12px rgba(74, 78, 180, 0.6);
+  }
 
-    .btn-primary {
-      background-color: #e1473f;
-      border: none;
-      font-weight: 700;
-      font-size: 1.1rem;
-      transition: background-color 0.3s ease;
-      border-radius: 50px;
-      padding: 0.6rem 2rem;
-      box-shadow: 0 6px 12px rgba(225, 71, 63, 0.6);
-    }
+  .btn-primary:hover,
+  .btn-primary:focus {
+    background-color: #0030db;
+    box-shadow: 0 6px 15px rgba(0, 48, 219, 0.8);
+  }
 
-    .btn-primary:hover,
-    .btn-primary:focus {
-      background-color: #b8332f;
-      box-shadow: 0 6px 15px rgba(184, 51, 47, 0.8);
-    }
+  #loadingSpinner {
+    color: #e1473f;
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
 
-    #loadingSpinner {
-      color: #e1473f;
-      font-weight: 600;
-      font-size: 1.1rem;
-    }
+  .alert-info {
+    background-color: #0030db;
+    border: none;
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 12px;
+    box-shadow: 0 6px 15px rgba(0, 48, 219, 0.5);
+  }
 
-    .alert-info {
-      background-color: #80b0ab;
-      border: none;
-      color: #4a3333;
-      font-weight: 600;
-      border-radius: 12px;
-      box-shadow: 0 6px 15px rgba(128, 176, 171, 0.5);
-    }
-  </style>
+  .alert-danger {
+    background-color: #e1473f;
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 12px;
+    border: none;
+  }
+</style>
+
 </head>
 
 <body>
+
+  <div class="text-center mb-4">
+<img src="{{ url_for('static', filename='FACTURAI.png') }}" alt="Logo FacturAI" class="img-fluid" style="max-height: 120px;">
+</div>
+
   <div class="container py-5" style="max-width: 500px;">
     <h1 class="mb-4 text-center">Subir uno o varios archivos PDF</h1>
 

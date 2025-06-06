@@ -7,79 +7,83 @@
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
 
-  <style>
-    body {
-      background-color: #ffffff;
-      color: #4a3333;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 2rem;
-    }
-    h1 {
-      font-weight: 700;
-      color: #4a3333;
-      margin-bottom: 0.5rem;
-      text-align: center;
-    }
-    h2 {
-      font-size: 1.25rem;
-      text-align: center;
-      color: #4a3333;
-      margin-bottom: 2rem;
-    }
-    table {
-      background-color: #9a9088;
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(74, 51, 51, 0.25);
-      font-weight: 600;
-      color: #4a3333;
-    }
-    thead tr {
-      background-color: #4a3333;
-      color: #dbd1b3;
-    }
-    thead th {
-      color: #dbd1b3;
-    }
-    th, td {
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid #e1473f88;
-      vertical-align: top;
-      color: #4a3333;
-    }
-    tbody tr:nth-child(even) {
-      background-color: #dbd1b3aa;
-    }
-    tbody tr:nth-child(odd) {
-      background-color: #80b0ab88;
-    }
-    .error-text {
-      color: #e1473f;
-      font-weight: 700;
-    }
-    .btn-back {
-      display: inline-block;
-      margin: 1rem;
-      background-color: #e1473f;
-      color: #dbd1b3;
-      padding: 0.75rem 1.5rem;
-      border-radius: 50px;
-      font-weight: 700;
-      text-decoration: none;
-      box-shadow: 0 6px 12px rgba(225, 71, 63, 0.6);
-      transition: background-color 0.3s ease;
-    }
-    .btn-back:hover {
-      background-color: #b8332f;
-      box-shadow: 0 6px 15px rgba(184, 51, 47, 0.8);
-      color: #dbd1b3;
-      text-decoration: none;
-    }
-  </style>
+ <style>
+  body {
+    background-color: #000000; /* fondo negro */
+    color: #ffffff; /* texto blanco */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 2rem;
+  }
+  h1 {
+    font-weight: 700;
+    color: #4a4eb4; /* azul para título */
+    margin-bottom: 0.5rem;
+    text-align: center;
+  }
+  h2 {
+    font-size: 1.25rem;
+    text-align: center;
+    color: #0030db; /* azul más intenso para subtítulo */
+    margin-bottom: 2rem;
+  }
+  table {
+    background-color: #121212; /* gris muy oscuro para tabla */
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(74, 78, 180, 0.5); /* sombra azul */
+    font-weight: 600;
+    color: #ffffff; /* texto blanco en tabla */
+  }
+  thead tr {
+    background-color: #4a4eb4; /* azul para header */
+    color: #ffffff; /* texto blanco en header */
+  }
+  thead th {
+    color: #ffffff;
+  }
+  th, td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0, 48, 219, 0.5); /* borde azul translúcido */
+    vertical-align: top;
+    color: #ffffff;
+  }
+  tbody tr:nth-child(even) {
+    background-color: rgba(74, 78, 180, 0.1); /* azul muy suave para filas pares */
+  }
+  tbody tr:nth-child(odd) {
+    background-color: rgba(0, 48, 219, 0.1); /* azul más intenso muy suave para filas impares */
+  }
+  .error-text {
+    color: #e1473f; /* rojo para errores, igual que antes */
+    font-weight: 700;
+  }
+  .btn-back {
+    display: inline-block;
+    margin: 1rem;
+    background-color: #4a4eb4; /* azul para botones */
+    color: #ffffff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 50px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 6px 12px rgba(74, 78, 180, 0.6);
+    transition: background-color 0.3s ease;
+  }
+  .btn-back:hover {
+    background-color: #0030db; /* azul más fuerte al pasar mouse */
+    box-shadow: 0 6px 15px rgba(0, 48, 219, 0.8);
+    color: #ffffff;
+    text-decoration: none;
+  }
+</style>
 </head>
 <body>
+
+  <div class="text-center mb-4">
+<img src="{{ url_for('static', filename='FACTURAI.png') }}" alt="Logo FacturAI" class="img-fluid" style="max-height: 120px;">
+</div>
 
 <h1>Resultados del procesamiento</h1>
 <h2>CUIL: {{ cuil }}</h2>
